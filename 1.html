@@ -1,11 +1,464 @@
-<html xmlns="http://www.w3.org/1999/xhtml">
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
 <head>
-<title></title>
+<title>区域管理</title>
 <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
-<style type="text/css">
-<style>
+<link href="../../css/mootree.css" rel="stylesheet" type="text/css" />
+<link href="../../css/common-style.css" rel="stylesheet" type="text/css" />
+<script type="text/javascript" src="../../js/mootools-core.js"></script>
+<script type="text/javascript" src="../../js/mootools-more.js"></script>
+<script type="text/javascript" src="../../js/clientcide.2.2.0.js"></script>
+<script type="text/javascript" src="../../js/mootools-util.js"></script>
+<script type="text/javascript" src="../../js/mootools-popup.js"></script>
+<script type="text/javascript" src="../../js/mootools-page-adjustment.js"></script>
+<script type="text/javascript" src="../../js/mootools-message-bar.js"></script>
+<script type="text/javascript" src="../../js/mootools-alert.js"></script>
+ 
+<script type="text/javascript" src="../../js/mootree.js">
+	
+</script>
+<script type="text/javascript">
+window.addEvent('domready', function () {
+    //生成区域树
+    window.buildTree = function (data, pid, pnode) {
+        var node;
+        for (var i = 0; i < data.length; i++) {
+            if (data[i].regionPid == pid) {
+                node = pnode.insert({
+                    id: data[i].regionId,
+                    text: data[i].regionName,
+                    data: {
+                        id: data[i].regionId,
+                        pid: data[i].regionPid,
+                        name: data[i].regionName,
+                        desc:data[i].regionDesc
+                       // url: data[i].menuUrl,
+                       // visible: data[i].menuVisible
+                    },
+                    onClick: function () {
+                        var rbtnAdd = $('buttons').getElement('.add').getElement('input');
+                        var rbtnUpdate = $('buttons').getElement('.update').getElement('input');
+                        var rbtnDelete = $('buttons').getElement('.delete').getElement('input');
+                        rbtnAdd.set('checked', false);
+                        rbtnUpdate.set('checked', false);
+                        rbtnDelete.set('checked', false);
+                        var depth = 0;
+                        var node = this;
+                        for (; ; ) {
+                            if (!$defined(node.parent))
+                                break;
+                            depth++;
+                            node = node.parent;
+                        }
+                         
+                        if (depth == 1) {//当前节点是主区域
+                            if (this.nodes.length > 0) {
+                                $('buttons').getElement('.add').setStyle('display', 'block');
+                                $('buttons').getElement('.update').setStyle('display', 'block');
+                                $('buttons').getElement('.delete').setStyle('display', 'none');
+                            } else {
+                                $('buttons').getElement('.add').setStyle('display', 'block');
+                                $('buttons').getElement('.update').setStyle('display', 'block');
+                                $('buttons').getElement('.delete').setStyle('display', 'block');
+                            }
+                        } else {//当前节点是子区域
+                            $('buttons').getElement('.add').setStyle('display', 'none');
+                            $('buttons').getElement('.update').setStyle('display', 'block');
+                            $('buttons').getElement('.delete').setStyle('display', 'block');
+                        }
+                        $('form1').setStyle('display', 'none');
+                    }
+                });
+                window.buildTree(data, data[i].regionId, node);
+            }
+        }
+    };
+
+    //获取所有区域节点
+    window.getAllMenuNode = function () {
+        window.waitBar.show();
+        new Request.JSON({
+            url: '../../../service/region-info-manage.do?operType=getAllRegionInfo',
+            noCache: true,
+            onSuccess: function (result) {
+                window.waitBar.hide();
+                if (result.error) {
+                    window.msgBox.show();
+                    window.msgBox.setMsg(result.msg);
+                    window.msgBox.data = result.errorDetail;
+                } else {
+                    $('container').setStyle('display', 'block');
+                    Util.removeAllOptions('ddlParentMenu');
+                    window.allMainMenuNodes = [];
+                    var i;
+                   
+                    for (i = 0; i < result.data.length; i++) {
+                        if (result.data[i].regionPid == 0) {
+                            window.allMainMenuNodes.push({regionId: result.data[i].regionId, regionName: result.data[i].regionName,regionDesc:result.data[i].regionDesc });
+                            Util.addOption('ddlParentMenu', result.data[i].regionId.toString(), result.data[i].regionName)
+                        }
+                    }
+                    window.tree = new MooTreeControl({
+                        div: 'mytree',
+                        mode: 'files',
+                        grid: true,
+                        imagePath: '../../image/mootree/',
+                        onExpand: function (node, state) {
+                        },
+                        onSelect: function (node, state) {
+                        },
+                        onClick: function (node) {
+                            if (node == this.root) {
+                                var rbtnAdd = $('buttons').getElement('.add').getElement('input');
+                                var rbtnUpdate = $('buttons').getElement('.update').getElement('input');
+                                var rbtnDelete = $('buttons').getElement('.delete').getElement('input');
+                                rbtnAdd.set('checked', false);
+                                rbtnUpdate.set('checked', false);
+                                rbtnDelete.set('checked', false);
+                                $('buttons').getElement('.add').setStyle('display', 'block');
+                                $('buttons').getElement('.update').setStyle('display', 'none');
+                                $('buttons').getElement('.delete').setStyle('display', 'none');
+                                $('form1').setStyle('display', 'none');
+                            }
+                        }
+                    }, {
+                        text: '所有区域',
+                        data: {
+                            id: 0,
+                            pid: -1,
+                            name: '所有区域',
+                            desc:'',
+                            //url: '',
+                            icon: '',
+                            position: 0,
+                          //  visible: 1
+                        }
+                    });
+                    window.buildTree(result.data, 0, window.tree);
+                    window.tree.expand();
+                    window.tree.select(window.tree.root);
+                }
+            },
+            onFailure: function (error) {
+                window.waitBar.hide();
+                window.msgBox.show();
+                window.msgBox.setMsg('加载数据失败');
+            }
+        }).get();
+    };
+
+    window.submitMenu = function () {
+        var rbtnAdd = $('buttons').getElement('.add').getElement('input');
+        var rbtnUpdate = $('buttons').getElement('.update').getElement('input');
+        var rbtnDelete = $('buttons').getElement('.delete').getElement('input');
+        if (rbtnAdd.get('checked'))
+            $('txtOperType').set('value', 'addRegionInfo');
+        else if (rbtnUpdate.get('checked'))
+            $('txtOperType').set('value', 'updateRegionInfo');
+        else if (rbtnDelete.get('checked'))
+            $('txtOperType').set('value', 'deleteRegionInfo');
+        window.waitBar.show();
+        new Request.JSON({
+            url: '../../../service/region-info-manage.do',
+            noCache: true,
+            onSuccess: function (result) {
+                window.waitBar.hide();
+                if (!result.error){
+                	/*
+                	if (rbtnAdd.get('checked')){
+                	  window.msgBox.show();
+                      window.msgBox.setMsg('生成成功!');
+                      window.location.href = 'menu-manage.do';
+                      return;
+                	}*/
+                    window.location.href = 'region-manage.do';
+                }
+                else {
+                    window.msgBox.show();
+                    window.msgBox.setMsg(result.msg);
+                    window.msgBox.data = result.errorDetail;
+                }
+            },
+            onFailure: function (error) {
+                window.waitBar.hide();
+                window.msgBox.show();
+                window.msgBox.setMsg('操作失败');
+            }
+        }).post($('form1'));
+    };
+
+    window.checkInput = function () {
+        if (!$('buttons').getElement('.delete').getElement('input').get('checked')) {
+            var menuName = $('txtMenuName').get('value').trim();
+            
+            if (menuName == '') {
+                window.msgBox.show();
+                window.msgBox.setMsg('请输入区域名称');
+                $('txtMenuName').focus();
+                return false;
+            }
+            return true;
+        } else
+            return true;
+    };
+
+    window.pageInitialize = function () {
+        window.waitBar = new MessageBar({ rootUrl: '../..' });
+        window.msgBox = new Alert({ rootUrl: '../..' });
+        
+        new PageAdjustment(null, {});
+    };
+
+    //绑定事件
+    window.bindingEvent = function () {
+        $('buttons').getElement('.add').addEvent('click', function () {
+            this.getElement('input').set('checked', true);
+            $('form1').setStyle('display', 'block');
+            $('divButton').setStyle('display', 'block');
+            $('copy').setStyle('display', 'none');
+            if ($defined(parent.menuData))
+                $('paste').setStyle('display', 'block');
+            else
+                $('paste').setStyle('display', 'none');
+            $('txtMenuName').focus();
+            $('txtMenuId').set('value', '');
+            $('txtMenuName').set('value', '');
+            $('txtRegionDesc').set('value', '');
+         
+       
+            Util.removeAllOptions('ddlParentMenu');
+            if (window.tree.selected.data.pid == -1) {
+                Util.addOption('ddlParentMenu', '10000000', '所有区域');
+            } else {
+                for (var i = 0; i < window.allMainMenuNodes.length; i++){
+                	console.log('i',i,window.allMainMenuNodes[i]);
+                	Util.addOption('ddlParentMenu', window.allMainMenuNodes[i].regionId.toString(), window.allMainMenuNodes[i].regionName);
+                }
+                    
+                Util.setSelectedValue('ddlParentMenu', window.tree.selected.data.id.toString());
+            }
+        });
+        $('buttons').getElement('.update').addEvent('click', function () {
+            this.getElement('input').set('checked', true);
+            $('form1').setStyle('display', 'block');
+            $('divButton').setStyle('display', 'block');
+            $('copy').setStyle('display', 'block');
+            if ($defined(parent.menuData))
+                $('paste').setStyle('display', 'block');
+            else
+                $('paste').setStyle('display', 'none');
+            $('txtMenuName').focus();
+            $('txtMenuId').set('value', window.tree.selected.data.id);
+            $('txtMenuName').set('value', window.tree.selected.data.name);
+            $('txtRegionDesc').set('value', window.tree.selected.data.desc);
+           // $('txtMenuUrl').set('value', window.tree.selected.data.url);
+          
+            Util.removeAllOptions('ddlParentMenu');
+            if (window.tree.selected.data.pid == 0) {
+                Util.addOption('ddlParentMenu', '0', '所有区域');
+            } else {
+                for (var i = 0; i < window.allMainMenuNodes.length; i++)
+                    Util.addOption('ddlParentMenu', window.allMainMenuNodes[i].regionId.toString(), window.allMainMenuNodes[i].regionName);
+                Util.setSelectedValue('ddlParentMenu', window.tree.selected.data.pid.toString());
+            }
+        });
+        $('buttons').getElement('.delete').addEvent('click', function () {
+            this.getElement('input').set('checked', true);
+            $('form1').setStyle('display', 'block');
+            $('divButton').setStyle('display', 'block');
+            $('copy').setStyle('display', 'block');
+            $('paste').setStyle('display', 'none');
+            $('txtMenuName').focus();
+            $('txtMenuId').set('value', window.tree.selected.data.id);
+            $('txtMenuName').set('value', window.tree.selected.data.name);
+           // $('txtMenuUrl').set('value', window.tree.selected.data.url);
+            $('txtRegionDesc').set('value', window.tree.selected.data.desc);
+            Util.removeAllOptions('ddlParentMenu');
+            if (window.tree.selected.data.pid == 0) {
+                Util.addOption('ddlParentMenu', '0', '所有区域');
+            } else {
+                for (var i = 0; i < window.allMainMenuNodes.length; i++)
+                    Util.addOption('ddlParentMenu', window.allMainMenuNodes[i].regionId.toString(), window.allMainMenuNodes[i].regionName);
+                Util.setSelectedValue('ddlParentMenu', window.tree.selected.data.pid.toString());
+            }
+        });
+
+     
+ 
+
+        $('copy').addEvent('click', function () {
+            if (!window.checkInput())
+                return;
+            parent.menuData = {};
+            parent.menuData.regionName = $('txtMenuName').get('value').trim();
+            parent.menuData.regionDesc = $('txtRegionDesc').get('value').trim();
+           // parent.menuData.menuUrl = $('txtMenuUrl').get('value');
+          
+            window.msgBox.show();
+            window.msgBox.setMsg('复制成功');
+        });
+        $('paste').addEvent('click', function () {
+            if ($defined(parent.menuData)) {
+                $('txtMenuName').set('value', parent.menuData.regionName);
+                //$('txtMenuUrl').set('value', parent.menuData.menuUrl);
+                $('txtRegionDesc').set('value', parent.menuData.regionDesc);
+            }
+        });
+
+        $('submit').addEvent('click', function () {
+            if (!window.checkInput())
+                return;
+            window.submitMenu();
+        });
+
+        window.msgBox.addEvent('ok', function () {
+            if (this.data == 1)
+             window.location.href = 'region-manage.do';
+        });
+        
+ 
+        //监控键盘事件
+        $('form1').addEvent('keydown', function (event) {
+            if (event.code == 13) { //监控回车键
+                if (!window.checkInput())
+                    return;
+                window.submitMenu();
+            }
+        });
+    };
+
+    window.callAjax = function () {
+    	window.getAllMenuNode();
+    };
+  
+    window.pageInitialize();
+    window.bindingEvent();
+    window.callAjax();
+});
+
+
+</script>
 </head>
-<body>
-	<p>hello world!</p>
+<body id="body">  
+    <div id="container" class="hidden">
+        <div id="header">
+            <!-- <a href="#" id="generateMenuPath" class="btnMenuNode" title="生成区域" style="float:right;margin-right:10px;margin-top:10px;"></a>
+             --><div class="title" style="float:left">区域管理</div>
+        </div>
+        <div id="middle" class="middle">        
+            <div class="topLeft" style="height:12px;"></div>
+            <div class="topMiddle" style="border-top:1px solid #d1d1d1;background-color:#FFFFFF;height:11px;"></div>
+            <div class="topRight" style="height:12px;"></div>
+            <div class="middle">
+            <div style="border:1px solid #007BA7;height:97%;margin-top:5px;margin-bottom:5px;">
+                 <div id="mytree" style="float:left;width:20%;height:100%;overflow:auto;border-right:1px solid #007BA7;">
+                 </div>
+                 <div style="float:left;overflow:auto;height:300px;width:79%;">
+                    <div id="buttons" style="height:40px;line-height:40px;">
+                    	<div style="float:left;width:200px;">
+        	                        <div class="add cursor" style="float:left; margin-left:10px;">
+        	                            <input type="radio" name="operButtons" style="float:left; margin-top:12px;" />
+        	                            <span style="float:left;margin-left:5px;">新增</span>
+        	                        </div>
+        	                        <div class="update cursor hidden" style="float:left; margin-left:10px;">
+        	                            <input type="radio" name="operButtons" style="float:left; margin-top:12px;" />
+        	                            <span style="float:left;margin-left:5px;">修改</span>
+        	                        </div>
+        	                        <div class="delete cursor hidden" style="float:left; margin-left:10px;">
+        	                            <input type="radio" name="operButtons" style=" float:left; margin-top:12px;" />
+        	                            <span style="float:left;margin-left:5px;">删除</span>
+        	                        </div>
+                        </div>
+                        <div id="divButton" style="float:right;width:250px;display:none;">
+                        	<a href="#" id="submit" class="btnOk" title="提交" style="float:right; margin-right:5px; margin-top:5px;"></a>
+                            <a href="#" id="copy" class="btnCopy" title="复制" style="float:right; margin-right:5px; margin-top:5px;"></a>
+                            <a href="#" id="paste" class="btnPaste" title="粘贴" style="float:right; margin-right:5px; margin-top:5px;"></a>
+                        </div>
+                    </div>
+                    <form id="form1" class="hidden" action="">
+                        <div style="border-top:1px solid #007BA7;">
+                            <table border="0" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+                                <tbody>
+                                    <tr>
+                                        <td colspan="3">
+                                            <input id="txtOperType" name="operType" type="hidden"/>
+                                            <input id="txtMenuId" name="menuId" type="hidden"/>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="right" style="width:150px; height:40px;"><span>区域名称</span></td>
+                                        <td style="width:10px;"></td>
+                                        <td align="left">
+                                            <input id="txtMenuName" name="regionName" type="text" />
+                                            <span style="color:Red;">*</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="right" style="width:150px; height:40px;"><span style="width:60px">上级区域</span></td>
+                                        <td style="width:10px;"></td>
+                                        <td align="left">
+                                            <select id="ddlParentMenu" name="regionPid" style="width:100px"></select>                                    
+                                        </td>
+                                    </tr>
+                                   <tr>
+                                        <td align="right" style="width:150px; height:40px;"><span>区域描述</span></td>
+                                        <td style="width:10px;"></td>
+                                        <td align="left">
+                                            <input id="txtRegionDesc" name="regionDesc" type="text" />
+                                            <span style="color:Red;">*</span>
+                                        </td>
+                                    </tr>
+                                     
+                                </tbody>
+                            </table>
+                        </div>
+                    </form>
+                 </div>
+             </div>
+            </div>
+            <div class="bottomLeft"></div>
+            <div class="bottomMiddle"></div>
+            <div class="bottomRight"></div>
+        			<div id="page">
+        				<div class="logo"></div>
+        				<ul>
+        					<li><a href=""></a></li>
+        					<li><a href=""></a></li>
+        					<li><a href=""></a></li>
+        				</ul>
+        			</div>
+        			<div id="content" class="column width"></div>
+        			<div>
+        				<p></p>
+        			</div>
+        			<div id="footer">
+        				<p><span></span></p>
+        			</div>
+        			<h1></h1>
+        			<p></p>
+        			<div id="header"></div>
+        			<div id="content"></div>
+        			<div id="footer"></div>
+        			<div id="header"></div>
+        			<div id="header"></div>
+        			<p id="artical"></p>
+        			<p id="artical"></p>
+        			<p id="artical"></p>
+        			<div id="box"></div>
+        			<div id="box"></div>
+        			<div id="box"></div>
+        			<div id="box"></div>
+        			<div id="box"></div>
+        			<ul id="nav">
+        				<li><a href=""></a></li>
+        				<li><a href=""></a></li>
+        				<li><a href=""></a></li>
+        				<li><a href=""></a></li>
+        				<li><a href=""></a></li>
+        			</ul>
+        			<ul id="nav" />
+        			<p>hello world</p>
+        </div>
+    </div>
 </body>
 </html>
