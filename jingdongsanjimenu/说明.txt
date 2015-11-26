@@ -1,0 +1,1 @@
+ie和chrome浏览器不支持加载静态json数据
